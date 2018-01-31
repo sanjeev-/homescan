@@ -104,7 +104,7 @@ def pullHomeData(home_url):
     
     """
     scrape_address = {}
-    print home_url
+    print (home_url)
 
     homepage = ''
     while homepage == '':
@@ -154,9 +154,9 @@ def pullHomeData(home_url):
 
     try: 
         if str(response['address_info']['status']['details'][0])=='Address fully verified':
-            print "verified address with house canary API"
+            print ("verified address with house canary API")
         else:
-            print 'error for address %s %s %s' % (address['address_line1'],address['city'],address['state'])
+            print( 'error for address %s %s %s' % (address['address_line1'],address['city'],address['state']))
             
     except:
         print ('error for address')
@@ -178,7 +178,7 @@ def pullHomeData(home_url):
         listing_data['building_area_sq_ft'] = int(homesoup.find_all('span',class_='listing-detail-sqft-val')[0].text.strip().replace(',',''))
     except:
         listing_data['building_area_sq_ft'] = None
-    listing_data['list_price'] = int(homesoup.find_all('span',class_='listing-detail-price-amount  pad-half-right')[0].text.strip().replace(',',''))
+    listing_data['list_price'] = int(homesoup.find_all('span',class_='listing-detail-price-amount pad-half-right')[0].text.strip().replace(',',''))
     print(listing_data['list_price'])
     try:
         listing_data['home_type'] = findNestedInfo(homesoup,'Listing Type')
@@ -622,7 +622,7 @@ def pullSoldHomeData(home_url):
     
     """
     scrape_address = {}
-    print home_url
+    print(home_url)
 
     homepage = ''
     while homepage == '':
@@ -673,12 +673,12 @@ def pullSoldHomeData(home_url):
 
     try: 
         if str(response['address_info']['status']['details'][0])=='Address fully verified':
-            print "verified address with house canary API"
+            print ("verified address with house canary API")
         else:
-            print 'error for address %s %s %s' % (address['address_line1'],address['city'],address['state'])
+            print ('error for address %s %s %s' % (address['address_line1'],address['city'],address['state']))
             
     except:
-        print 'error for address %s %s %s' % (address['address_line1'],address['city'],address['state'])
+        print( 'error for address %s %s %s' % (address['address_line1'],address['city'],address['state']))
 
         
     
@@ -701,6 +701,7 @@ def pullSoldHomeData(home_url):
     try:
         listing_data['sale_price'] =  float(homesoup.find_all('li',attrs={'hmsitemprop':'Price'})[0].text.strip().replace(",",''))
     except:
+        print('NO SALE PX!')
         listing_data['sale_price'] = None
 
     try:
@@ -851,5 +852,11 @@ def pullSoldHomeData(home_url):
 def createSoldHomeURL(page):
     
     url = 'https://metrorealty1-northcarolina.remax.com/realestatehomesforsale/charlotte-nc-p{0:03d}.html?query=minprice-50000/maxprice-2000000/'.format(page)
+    
+    return url
+
+def createSoldHomeURLNoFilter(page):
+    
+    url = 'https://metrorealty1-northcarolina.remax.com/realestatehomesforsale/charlotte-nc-p{0:03d}.html'.format(page)
     
     return url
