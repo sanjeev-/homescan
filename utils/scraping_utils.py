@@ -1,11 +1,147 @@
 import os
 import sys
 from bs4 import BeautifulSoup
+import subprocess
 from requests import get
 import requests
 from datetime import datetime, timedelta
 import time
+from dateutil import parser
 
+def df_filename():
+    """This returns csv filename for today
+
+    Keyword arguments:
+        None
+
+    Returns:
+        df_filename: [string] csv filename data_[todays_date].csv
+    """
+    now = datetime.now()
+    datestr = now.strftime('%Y%m%d')
+    df_filename = 'data_{}.csv'.format(datestr)
+    return df_filename
+
+def find_latest_soldpx_csvname(specific_date='<YYYYMMDD>'):
+    """Finds the newest csv name in the drive.  Can pull a specific date
+       by filling in the specific date field.
+
+    Keyword arguments:
+        specific date: [string in YYYYMMDD date format ] This is optional.  Standard it to leave blank and it will 
+                        pull the latest.
+
+    Returns:
+        returns a csv filename to pull from google storage bucket.
+    """
+    command = ['gsutil','ls','gs://rooftop-data/sold_home_data/']
+    out = subprocess.check_output(command)
+    csv_list = str(out).split('\\n')
+    parsed_csv_list = [x[x.find('data_')+5:-4] for x in csv_list]
+    date_csv_list = [x for x in parsed_csv_list if len(x)==8]
+    dates = [parser.parse(x) for x in date_csv_list]
+    now = datetime.datetime.now()
+    newest = max(dt for dt in dates if dt < now)
+    csv_filename = 'soldhomedata_{}.csv'.format(newest.strftime('%Y%m%d'))
+    return csv_filename
+
+
+def find_latest_csvname(specific_date='<YYYYMMDD>'):
+    """Finds the newest csv name in the drive.  Can pull a specific date
+       by filling in the specific date field.
+
+    Keyword arguments:
+        specific date: [string in YYYYMMDD date format ] This is optional.  Standard it to leave blank and it will 
+                        pull the latest.
+
+    Returns:
+        returns a csv filename to pull from google storage bucket.
+    """
+    command = ['gsutil','ls','gs://rooftop-data/properties_data/']
+    out = subprocess.check_output(command)
+    csv_list = str(out).split('\\n')
+    parsed_csv_list = [x[x.find('data_')+5:-4] for x in csv_list]
+    date_csv_list = [x for x in parsed_csv_list if len(x)==8]
+    dates = [parser.parse(x) for x in date_csv_list]
+    now = datetime.now()
+    newest = max(dt for dt in dates if dt < now)
+    csv_filename = 'data_{}.csv'.format(newest.strftime('%Y%m%d'))
+    return csv_filename
+
+def fetch_from_google_storage(google_storage_bucket, path_to_file, filename, destination_folder):
+    """Pulls file from google cloud storage bucket
+    
+    Keyword arguments:
+        google_storage_bucket: [string] name of google storage bucket e.g. django-uploads
+        path_to_file: [string] path to the folder of the file you want to pull from
+        google storage
+        filename: [string] name of the file you want to pull e.g. data_<YYYYMMDD>.csv
+        destination_folder: [string] path to the folder you want to save the pulled file in
+    
+    Returns:
+    returns success status if successful
+    """
+    pull_path = 'gs://{}/{}/{}'.format(google_storage_bucket, path_to_file, filename)
+    print('pull path is {}'.format(pull_path))
+    destination_path = os.getcwd() + '/{}/{}'.format(destination_folder, filename)
+    print('destination path is {}'.format(destination_path))
+    gsutil_command = ['gsutil', 'cp', pull_path,destination_path]
+    try:
+        subprocess.call(gsutil_command)
+        print('pulled file {} successfully from the {} google storage bucket'.format(filename,google_storage_bucket))
+    except Exception as e:
+        print('pull failed. error message: {}'.format(e))
+
+def pull_last_run_date(pickle_path):
+    """Pulls the last run date from a pickle file.
+    
+    Keyword arguments:
+        pickle_path: [string] path to the pickle file that has the last_run_date
+
+    Returns:
+    last_run_date_str: [string] path to 
+    """
+    pickle_path = os.path.join(os.getcwd(), pickle_path)
+    last_run_date_file= open(pickle_path, 'rb')
+    last_run_date = pickle.load(last_run_date_file)
+    last_run_date_str = last_run_date.strftime('%Y%m%d')
+    return last_run_date_str
+
+def generate_csv_filename(last_run_date_str):
+    """Generates name of csv file given a date
+    
+    Keyword arguments:
+        last_run_date_str: [string] the last run date for the cron job, as a string
+
+    Returns:
+        csv_filename: [string] the filename for the csv file with the data stored in it
+    """
+    csv_filename = 'data_{}.csv'.format(last_run_date_str)
+    return csv_filename
+
+
+def send_to_google_storage(google_storage_bucket, path_to_file, filename, destination_folder):
+    """Sends a file to google cloud storage bucket from local drive
+    
+    Keyword arguments:
+        google_storage_bucket: [string] name of google storage bucket e.g. django-uploads
+        path_to_file: [string] path to the folder of the file you want to pull from
+        google storage
+        filename: [string] name of the file you want to pull e.g. data_<YYYYMMDD>.csv
+        destination_folder: [string] path to the folder you want to save the pulled file in
+    
+    Returns:
+    returns success status if successful
+    """
+    gs_path = 'gs://{}/{}/{}'.format(google_storage_bucket, path_to_file, filename)
+    print('google storage path is {}'.format(gs_path))
+    local_path = os.getcwd() + '/{}/{}'.format(destination_folder, filename)
+    print('local file path is {}'.format(local_path))
+    gsutil_command = ['gsutil', 'cp', local_path, gs_path]
+    try:
+        subprocess.call(gsutil_command)
+        print('sent {} successfully to the {} google storage bucket'.format(filename,google_storage_bucket))
+    except Exception as e:
+        print('pull failed. error message: {}'.format(e))
 
 
 def findReMaxURLS(soup):
@@ -160,11 +296,6 @@ def pullHomeData(home_url):
             
     except:
         print ('error for address')
-
-        
-    
-
- 
     listing_data = {}
     try:
         listing_data['num_bedrooms'] = int(homesoup.find_all('span',class_='listing-detail-beds-val')[0].text.strip())
@@ -260,8 +391,6 @@ def pullHomeData(home_url):
         features['no_pool_well_septic'] = True
     else:
         features['no_pool_well_septic'] = False
-
-
     try:
         subdiv = findNestedInfo(homesoup,'Subdivision')
         features['has_established_subdivision'] = True
@@ -303,8 +432,6 @@ def pullHomeData(home_url):
         features['remax_url'] = home_url
     except:
         features['remax_url'] = None
-
-
     images={}
 
     imglist = pullImageURLSFromSlideshow(homesoup)
@@ -313,18 +440,11 @@ def pullHomeData(home_url):
         images['image_header'] = imglist[0]
     except:
         images['image_header'] = None
-
-
-
     home_dict = {}
     home_dict['address'] = address
     home_dict['listing_data'] = listing_data
     home_dict['images'] = images
     home_dict['features'] = features
-
-    
-    
-    
     return home_dict
     
     

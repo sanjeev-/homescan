@@ -1,9 +1,9 @@
 from scraping_utils import *
 import pandas as pd 
 from bs4 import BeautifulSoup
-from load_properties import fetch_from_google_storage
-from load_properties import find_latest_csvname
-from load_soldproperties import find_latest_soldpx_csvname
+from scraping_utils import fetch_from_google_storage
+from scraping_utils import find_latest_csvname
+from scraping_utils import find_latest_soldpx_csvname
 import time
 import random
 import urllib3
@@ -23,29 +23,6 @@ def check_slug_in_dataframe(slug,df):
     exists_in_df = df['Unnamed: 0'].str.contains(slug).sum() >= 1
     return exists_in_df
 
-def send_to_google_storage(google_storage_bucket, path_to_file, filename, destination_folder):
-    """Sends a file to google cloud storage bucket from local drive
-    
-    Keyword arguments:
-        google_storage_bucket: [string] name of google storage bucket e.g. django-uploads
-        path_to_file: [string] path to the folder of the file you want to pull from
-        google storage
-        filename: [string] name of the file you want to pull e.g. data_<YYYYMMDD>.csv
-        destination_folder: [string] path to the folder you want to save the pulled file in
-    
-    Returns:
-    returns success status if successful
-    """
-    gs_path = 'gs://{}/{}/{}'.format(google_storage_bucket, path_to_file, filename)
-    print('google storage path is {}'.format(gs_path))
-    local_path = os.getcwd() + '/{}/{}'.format(destination_folder, filename)
-    print('local file path is {}'.format(local_path))
-    gsutil_command = ['gsutil', 'cp', local_path,gs_path]
-    try:
-        subprocess.call(gsutil_command)
-        print('pulled file {} successfully from the {} google storage bucket'.format(filename,google_storage_bucket))
-    except Exception as e:
-        print('pull failed. error message: {}'.format(e))
 
 def solddf_filename():
     """This returns csv filename for today

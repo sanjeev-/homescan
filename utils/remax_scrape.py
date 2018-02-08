@@ -12,8 +12,8 @@ import pandas as pd
 from django.core.wsgi import get_wsgi_application
 import json
 from dateutil import parser as dateparser
-from load_properties import fetch_from_google_storage
-from load_properties import find_latest_csvname
+from scraping_utils import fetch_from_google_storage, send_to_google_storage
+from scraping_utils import find_latest_csvname
 from dateutil import parser
 
 def df_filename():
@@ -127,8 +127,10 @@ if __name__ == '__main__':
         print('you didnt supply a state.  please try again')
     city=args['city']
     state=args['state']
-    print('scraping home data for %s, %s :  time elapsed is...' % (city, state))
+    print('scraping home data: ')
     csv_filename = find_latest_csvname()
     fetch_from_google_storage('rooftop-data','properties_data',csv_filename,
                               'csv_data')
     scrape_remax(city, state)
+    new_df_filename = df_filename()
+    send_to_google_storage('rooftop-data','properties_data',new_df_filename,'')
