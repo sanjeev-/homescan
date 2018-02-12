@@ -9,7 +9,6 @@ import subprocess
 from datetime import datetime
 import pickle
 import pandas as pd
-from django.core.wsgi import get_wsgi_application
 import json
 from dateutil import parser as dateparser
 from scraping_utils import fetch_from_google_storage, send_to_google_storage
@@ -114,9 +113,29 @@ def scrape_remax(city,state):
             except:
                     pass
         df_new = pd.DataFrame.from_dict(d,orient='index')
+        df_new.to_csv('temp/df_zero.csv',encoding='utf-8')
+        df_new=pd.read_csv('temp/df_zero.csv')
+        df_new.columns = ['slug', 'address_lon', 'listing_data_building_area_sq_ft',
+       'listing_data_list_price', 'address_unit', 'listing_data_num_bedrooms',
+       'features_floors', 'features_year_built', 'address_state',
+       'address_address_line1', 'listing_data_num_bathrooms',
+       'features_listing_status', 'features_interior_features',
+       'images_img_gallery', 'features_flooring', 'features_is_foreclosure',
+       'features_school_score', 'features_remax_url', 'address_lat',
+       'features_num_half_bath', 'listing_data_home_type',
+       'features_has_septic', 'features_has_pool', 'features_days_on_site',
+       'address_slug', 'images_image_header', 'features_start_date_on_site',
+       'features_subdivision', 'features_has_established_subdivision',
+       'features_has_well', 'features_has_garage',
+       'features_no_pool_well_septic', 'address_city',
+       'features_garage_detail', 'features_num_full_bath', 'features_MLS',
+       'address_zipcode', 'features_desc']
         df_combined = pd.concat([df_old, df_new])
-        new_df_filename = df_filename()
-        df_combined.to_csv(new_df_filename,encoding='utf-8')
+        df_combined = df_combined.drop_duplicates()
+        new_df_filename = 'output/'+df_filename()
+        df_combined.to_csv(new_df_filename,encoding='utf-8',index=False)
+        send_to_google_storage('rooftop-data','properties_data',new_df_filename,'')
+        print('uploaded new properties to google cloud storage')
     print('scraping update completed!')
 
 if __name__ == '__main__':
@@ -132,5 +151,3 @@ if __name__ == '__main__':
     fetch_from_google_storage('rooftop-data','properties_data',csv_filename,
                               'csv_data')
     scrape_remax(city, state)
-    new_df_filename = df_filename()
-    send_to_google_storage('rooftop-data','properties_data',new_df_filename,'')

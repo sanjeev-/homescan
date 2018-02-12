@@ -33,9 +33,9 @@ def find_latest_soldpx_csvname(specific_date='<YYYYMMDD>'):
     Returns:
         returns a csv filename to pull from google storage bucket.
     """
-    command = ['gsutil','ls','gs://rooftop-data/sold_home_data/']
+    command = ['sudo','gsutil','ls','gs://rooftop-data/sold_home_data/']
     out = subprocess.check_output(command)
-    csv_list = str(out).split('\\n')
+    csv_list = str(out).split('\n')
     parsed_csv_list = [x[x.find('data_')+5:-4] for x in csv_list]
     date_csv_list = [x for x in parsed_csv_list if len(x)==8]
     dates = [parser.parse(x) for x in date_csv_list]
@@ -56,12 +56,15 @@ def find_latest_csvname(specific_date='<YYYYMMDD>'):
     Returns:
         returns a csv filename to pull from google storage bucket.
     """
-    command = ['gsutil','ls','gs://rooftop-data/properties_data/']
+    command = ['sudo','gsutil','ls','gs://rooftop-data/properties_data/']
     out = subprocess.check_output(command)
-    csv_list = str(out).split('\\n')
+    csv_list = str(out).split('\n')
     parsed_csv_list = [x[x.find('data_')+5:-4] for x in csv_list]
+    print(parsed_csv_list)
     date_csv_list = [x for x in parsed_csv_list if len(x)==8]
+    print(date_csv_list)
     dates = [parser.parse(x) for x in date_csv_list]
+    print(dates)
     now = datetime.now()
     newest = max(dt for dt in dates if dt < now)
     csv_filename = 'data_{}.csv'.format(newest.strftime('%Y%m%d'))
@@ -84,7 +87,7 @@ def fetch_from_google_storage(google_storage_bucket, path_to_file, filename, des
     print('pull path is {}'.format(pull_path))
     destination_path = os.getcwd() + '/{}/{}'.format(destination_folder, filename)
     print('destination path is {}'.format(destination_path))
-    gsutil_command = ['gsutil', 'cp', pull_path,destination_path]
+    gsutil_command = ['sudo','gsutil', 'cp', pull_path,destination_path]
     try:
         subprocess.call(gsutil_command)
         print('pulled file {} successfully from the {} google storage bucket'.format(filename,google_storage_bucket))
@@ -136,7 +139,7 @@ def send_to_google_storage(google_storage_bucket, path_to_file, filename, destin
     print('google storage path is {}'.format(gs_path))
     local_path = os.getcwd() + '/{}/{}'.format(destination_folder, filename)
     print('local file path is {}'.format(local_path))
-    gsutil_command = ['gsutil', 'cp', local_path, gs_path]
+    gsutil_command = ['sudo', 'gsutil', 'cp', local_path, gs_path]
     try:
         subprocess.call(gsutil_command)
         print('sent {} successfully to the {} google storage bucket'.format(filename,google_storage_bucket))
