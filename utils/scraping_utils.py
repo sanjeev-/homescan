@@ -58,7 +58,7 @@ def find_latest_csvname(specific_date='<YYYYMMDD>'):
     """
     command = ['sudo','gsutil','ls','gs://rooftop-data/properties_data/']
     out = subprocess.check_output(command)
-    csv_list = str(out).split('\n')
+    csv_list = str(out).split('\\n')
     parsed_csv_list = [x[x.find('data_')+5:-4] for x in csv_list]
     print(parsed_csv_list)
     date_csv_list = [x for x in parsed_csv_list if len(x)==8]

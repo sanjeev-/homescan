@@ -107,7 +107,7 @@ def scrape_remax(city,state):
                 flat = flatten_dict(home)
                 slug = flat['address_slug']
                 d[slug] = flat
-                property_date = parser.parse(home['features_start_date_on_site']).to_datetime()
+                property_date = parser.parse(flat['features_start_date_on_site'])
                 keep_on_scraping = check_date_vs_last_scrape_date(property_date,last_scrape_date)
                 print('current propery date is: {}  last df property date is: {}'.format(property_date,last_scrape_date))
             except:
