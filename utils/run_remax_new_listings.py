@@ -1,4 +1,4 @@
-from scraping_utils import createRemaxCityURL,find_remax_urls,pull_home_data,flatten_dict
+from scraping_utils import create_remax_city_url,find_remax_urls,pull_home_data,flatten_dict
 import pandas as pd
 import argparse    
 from bs4 import BeautifulSoup
@@ -14,6 +14,17 @@ from dateutil import parser as dateparser
 from scraping_utils import fetch_from_google_storage, send_to_google_storage
 from scraping_utils import find_latest_csvname
 from dateutil import parser
+
+def directory_management():
+    """Makes sure that you are in the correct working director, and then creates base_dir and data_dir and utils_dir variables
+    """
+    base_dir = os.path.normpath(os.getcwd())
+    data_dir = os.path.join(base_dir,'data')
+    utils_dir = os.path.join(base_dir,'utils')
+    if base_dir[-5] == 'utils':
+        print('please run this script from the homescan directory!')
+        raise Exception
+    return base_dir, data_dir, utils_dir
 
 def df_filename():
     """This returns csv filename for today
@@ -84,11 +95,26 @@ def scrape_remax(city,state):
         state: [string] state of the area you want to scrape
         stop_date: [string] string (YYYY-MM-DD) of the date at which you wish to 
                             stop scraping
-
     Returns:
         csv of the dataframe
     """
-    df_old = pd.read_csv('csv_data/'+csv_filename)
+    newcols = ['slug', 'address_lon', 'listing_data_building_area_sq_ft',
+       'listing_data_list_price', 'address_unit', 'listing_data_num_bedrooms',
+       'features_floors', 'features_year_built', 'address_state',
+       'address_address_line1', 'listing_data_num_bathrooms',
+       'features_listing_status', 'features_interior_features',
+       'images_img_gallery', 'features_flooring', 'features_is_foreclosure',
+       'features_school_score', 'features_remax_url', 'address_lat',
+       'features_num_half_bath', 'listing_data_home_type',
+       'features_has_septic', 'features_has_pool', 'features_days_on_site',
+       'address_slug', 'images_image_header', 'features_start_date_on_site',
+       'features_subdivision', 'features_has_established_subdivision',
+       'features_has_well', 'features_has_garage',
+       'features_no_pool_well_septic', 'address_city',
+       'features_garage_detail', 'features_num_full_bath', 'features_MLS',
+       'address_zipcode', 'features_desc']
+    temp_dir = '/data/temp/'
+    df_old = pd.read_csv('data/temp/'+csv_filename)
     last_scrape_date = find_last_scrape_date(df_old)
     d={}
     pg = 0
@@ -96,7 +122,7 @@ def scrape_remax(city,state):
     while keep_on_scraping:
         pg += 1
         print('scraping page %s' % (str(pg)))
-        page = createRemaxCityURL(city,state,pg)
+        page = create_remax_city_url(city,state,pg)
         urls = find_remax_urls(BeautifulSoup(get(page,verify=False).text,'html.parser'))
         for url in urls:
             try:
@@ -113,23 +139,9 @@ def scrape_remax(city,state):
             except:
                     pass
         df_new = pd.DataFrame.from_dict(d,orient='index')
-        df_new.to_csv('temp/df_zero.csv',encoding='utf-8')
-        df_new=pd.read_csv('temp/df_zero.csv')
-        df_new.columns = ['slug', 'address_lon', 'listing_data_building_area_sq_ft',
-       'listing_data_list_price', 'address_unit', 'listing_data_num_bedrooms',
-       'features_floors', 'features_year_built', 'address_state',
-       'address_address_line1', 'listing_data_num_bathrooms',
-       'features_listing_status', 'features_interior_features',
-       'images_img_gallery', 'features_flooring', 'features_is_foreclosure',
-       'features_school_score', 'features_remax_url', 'address_lat',
-       'features_num_half_bath', 'listing_data_home_type',
-       'features_has_septic', 'features_has_pool', 'features_days_on_site',
-       'address_slug', 'images_image_header', 'features_start_date_on_site',
-       'features_subdivision', 'features_has_established_subdivision',
-       'features_has_well', 'features_has_garage',
-       'features_no_pool_well_septic', 'address_city',
-       'features_garage_detail', 'features_num_full_bath', 'features_MLS',
-       'address_zipcode', 'features_desc']
+        df_new.to_csv(temp_dir+'df_temp.csv',encoding='utf-8')
+        df_new=pd.read_csv(temp_dir+'df_temp.csv')
+        df_new.columns = newcols
         df_combined = pd.concat([df_old, df_new])
         df_combined = df_combined.drop_duplicates()
         new_df_filename = 'output/'+df_filename()
@@ -139,6 +151,7 @@ def scrape_remax(city,state):
     print('scraping update completed!')
 
 if __name__ == '__main__':
+    base_dir, data_dir, utils_dir = directory_management()
     arg_check, args = implement_arg_parse()
     if arg_check.city == 'check_string_for_empty':
         print('you didnt supply a city.  please try again.')
@@ -149,5 +162,5 @@ if __name__ == '__main__':
     print('scraping home data: ')
     csv_filename = find_latest_csvname()
     fetch_from_google_storage('rooftop-data','properties_data',csv_filename,
-                              'csv_data')
+                              'data/temp')
     scrape_remax(city, state)

@@ -7,6 +7,7 @@ import requests
 from datetime import datetime, timedelta
 import time
 from dateutil import parser
+import logging
 
 def df_filename():
     """This returns csv filename for today
@@ -43,7 +44,6 @@ def find_latest_soldpx_csvname(specific_date='<YYYYMMDD>'):
     newest = max(dt for dt in dates if dt < now)
     csv_filename = 'soldhomedata_{}.csv'.format(newest.strftime('%Y%m%d'))
     return csv_filename
-
 
 def find_latest_csvname(specific_date='<YYYYMMDD>'):
     """Finds the newest csv name in the drive.  Can pull a specific date
@@ -106,7 +106,6 @@ def generate_csv_filename(last_run_date_str):
     csv_filename = 'data_{}.csv'.format(last_run_date_str)
     return csv_filename
 
-
 def send_to_google_storage(google_storage_bucket, path_to_file, filename, destination_folder):
     """Sends a file to google cloud storage bucket from local drive
     
@@ -146,8 +145,7 @@ def find_remax_urls(soup):
         remax_urls.append(BASE_URL+crouton['href'])
     return remax_urls
 
-
-def pullImageURLSFromSlideshow(soup):
+def pull_image_urls_from_slideshow(soup):
     """
     soup: [bs4 soup object]  the soup object of the website that we are going to be scraping from.
     
@@ -162,7 +160,6 @@ def pullImageURLSFromSlideshow(soup):
 def pull_home_data(home_url):
     """
     home_url - string: url of the remax home from which we wish to extract data
-    
     - 
     returns: home_dict: dict {
     
@@ -211,9 +208,9 @@ def pull_home_data(home_url):
     }       
     
     """
+    temp_dir = os.getcwd()+'/data/temp/'
     scrape_address = {}
     print (home_url)
-
     homepage = ''
     while homepage == '':
         try:
@@ -224,8 +221,6 @@ def pull_home_data(home_url):
             print('Zzzzzzzz.....')
             time.sleep(10)
             print('I woke up, now let me try this again.')
-
-
     homesoup = BeautifulSoup(homepage.text,'html.parser')
     scrape_address['address_line1']  = homesoup.find_all('li',attrs={'hmsitemprop':'Address'})[0].text.strip()
     addr = homesoup.find_all('li',attrs={'hmsitemprop':'Address'})[0].text.strip()
@@ -235,13 +230,9 @@ def pull_home_data(home_url):
         scrape_address['unit'] = 'Unit '+str(addr[idx+1:])
     else:
         scrape_address['address_line1']  = homesoup.find_all('li',attrs={'hmsitemprop':'Address'})[0].text.strip()
-
-
-
     scrape_address['city']  = homesoup.find_all('li',attrs={'hmsitemprop':'City'})[0].text.strip()
     scrape_address['state']  = homesoup.find_all('li',attrs={'hmsitemprop':'State'})[0].text.strip()
     scrape_address['zipcode']  = homesoup.find_all('li',attrs={'hmsitemprop':'Zip'})[0].text.strip()
-    
     try:
         response = canonicalizeAddress(scrape_address)[0]
     except:
@@ -258,15 +249,14 @@ def pull_home_data(home_url):
         address['slug'] = str(response['address_info']['slug'])
     except:
         address={}
-
     try: 
         if str(response['address_info']['status']['details'][0])=='Address fully verified':
             print ("verified address with house canary API")
         else:
-            print( 'error for address %s %s %s' % (address['address_line1'],address['city'],address['state']))
-            
+            print( 'error for address %s %s %s' % (address['address_line1'],address['city'],address['state']))       
     except:
         print ('error for address')
+    # GET LISTING DATA
     listing_data = {}
     try:
         listing_data['num_bedrooms'] = int(homesoup.find_all('span',class_='listing-detail-beds-val')[0].text.strip())
@@ -283,10 +273,10 @@ def pull_home_data(home_url):
     listing_data['list_price'] = int(homesoup.find_all('span',class_='listing-detail-price-amount pad-half-right')[0].text.strip().replace(',',''))
     print(listing_data['list_price'])
     try:
-        listing_data['home_type'] = findNestedInfo(homesoup,'Listing Type')
+        listing_data['home_type'] = find_nested_info(homesoup,'Listing Type')
     except:
         listing_data['home_type'] = None
-
+    # GET HOME FEATURES
     features = {}
     try:
         features['MLS'] = int(homesoup.find_all('li',attrs={'hmsitemprop':'MLSNumber'})[0].text.strip())
@@ -298,33 +288,23 @@ def pull_home_data(home_url):
     except:
         features['desc'] = None
     try:
-        features['year_built'] = findNestedInfo(homesoup,'Year Built')
+        features['year_built'] = find_nested_info(homesoup,'Year Built')
     except:
         features['year_built'] = None
-
     try:
-        school_score = getAverageSchoolRating(homesoup)
+        school_score = get_average_school_rating(homesoup)
     except:
         school_score = None
     try:
         features['school_score'] = school_score
     except:
         features['school_score'] = None
-    #try:
-    #    crime = getCrimeIndex(block_id)
-    #    features['crime_index_all'] = crime[0]
-    #    features['crime_index_violent'] = crime[1]
-    #except:
-    #    features['crime_index_all'] = None
-    #    features['crime_index_violent'] = None
-    
     try:
-        features['floors'] = findNestedInfo(homesoup,'Floors')
+        features['floors'] = find_nested_info(homesoup,'Floors')
     except:
         features['floors'] = None
-
     try:
-        garage = findNestedInfo(homesoup,'Garage')
+        garage = find_nested_info(homesoup,'Garage')
         if garage>0:
             features['garage_detail'] = str(garage)
             features['has_garage'] = True
@@ -334,17 +314,15 @@ def pull_home_data(home_url):
     except:
         features['garage_detail'] = None
         features['has_garage'] = False
-
     try:
-        if findExtraNestedInfo(homesoup,'Sewer') == 'City Sewer':
+        if find_extra_nested_info(homesoup,'Sewer') == 'City Sewer':
             features['has_septic'] = False
         else:
             features['has_septic'] = True
     except:
         features['has_septic'] = None
-
     try:
-        if findExtraNestedInfo(homesoup,'Water') == 'City Water':
+        if find_extra_nested_info(homesoup,'Water') == 'City Water':
             features['has_well'] = False
         else:
             features['has_well'] = True
@@ -363,28 +341,25 @@ def pull_home_data(home_url):
     else:
         features['no_pool_well_septic'] = False
     try:
-        subdiv = findNestedInfo(homesoup,'Subdivision')
+        subdiv = find_nested_info(homesoup,'Subdivision')
         features['has_established_subdivision'] = True
         features['subdivision'] = subdiv
     except:
         features['has_established_subdivision'] = False
         features['subdivision'] = None
     try:
-        features['listing_status'] = findNestedInfo(homesoup,'Listing Status')
+        features['listing_status'] = find_nested_info(homesoup,'Listing Status')
     except:
         features['listing_status'] = None
-
     try:
-        features['num_full_bath'] = findNestedInfo(homesoup,'Full Bath')
+        features['num_full_bath'] = find_nested_info(homesoup,'Full Bath')
     except:
         features['num_full_bath'] = 0
     try:
-        features['num_half_bath'] = findNestedInfo(homesoup,'Half Bath')
+        features['num_half_bath'] = find_nested_info(homesoup,'Half Bath')
     except:
         features['num_half_bath'] = 0
-
     dos = homesoup.find_all('span',attrs={'title':'DOS'})[0].text.strip()[14:]
-    
     if '<' in dos:
         features['days_on_site'] = 1
     else:
@@ -392,20 +367,20 @@ def pull_home_data(home_url):
     starting_date = datetime.today() - timedelta(days=int(features['days_on_site']))
     features['start_date_on_site'] = starting_date.strftime('%Y-%m-%d')
     try:
-        features['interior_features'] = findExtraNestedInfo(homesoup,'Interior Features')
+        features['interior_features'] = find_extra_nested_info(homesoup,'Interior Features')
     except:
         features['interior_features'] = None
     try:
-        features['flooring'] = findExtraNestedInfo(homesoup,'Flooring')
+        features['flooring'] = find_extra_nested_info(homesoup,'Flooring')
     except:
         features['flooring'] = None
     try:
         features['remax_url'] = home_url
     except:
         features['remax_url'] = None
+    # GET IMAGE DATA
     images={}
-
-    imglist = pullImageURLSFromSlideshow(homesoup)
+    imglist = pull_image_urls_from_slideshow(homesoup)
     images['img_gallery'] = ';'.join(imglist)
     try:
         images['image_header'] = imglist[0]
@@ -418,8 +393,7 @@ def pull_home_data(home_url):
     home_dict['features'] = features
     return home_dict
     
-    
-def getAverageSchoolRating(soup,radius=5):
+def get_average_school_rating(soup,radius=5):
     """
     this querys the remax API endpoint and 
     
@@ -527,7 +501,7 @@ def fetchremaxJSON(lat,lon,radius=5):
     
     
 
-def findNestedInfo(soup,info):
+def find_nested_info(soup,info):
     """
     soup: [bs4 soup obj] the soup obj of webpage to scrape
     
@@ -559,14 +533,10 @@ def canonicalizeAddress(remax_address_dict):
     returns [dict] of street address info from the house canary API 
     
     """
-
-
-
     hc_key = '9SJCA9DISJVUAVAS4QQQ'
     hc_secret = '80vGOq9qYEy46a53XsUReFKpyvPK1owG' 
     if 'unit' in remax_address_dict:
         params = {
-        
         'address': remax_address_dict['address_line1'],
         'state': remax_address_dict['state'],
         'zipcode': remax_address_dict['zipcode'],
@@ -574,9 +544,7 @@ def canonicalizeAddress(remax_address_dict):
         'unit':remax_address_dict['unit']
         }
     else:
-
         params = {
-            
             'address': remax_address_dict['address_line1'],
             'state': remax_address_dict['state'],
             'zipcode': remax_address_dict['zipcode'],
@@ -587,21 +555,18 @@ def canonicalizeAddress(remax_address_dict):
     response = response.json()
     return response
 
-
-def findExtraNestedInfo(soup,info):
+def find_extra_nested_info(soup,info):
+    """Find the nested info in the remax site
+    Keyword arguments:
+        soup: [bs4 soup obj] the soup obj of webpage to scrape
+    Returns: 
+        data: [int] year the house was built
     """
-    soup: [bs4 soup obj] the soup obj of webpage to scrape
-    
-    returns: [int] year the house was built
-    
-    """
-
     for idx, noodle in enumerate(soup.find_all('dt',class_='listing-detail-stats-more-key')):
         if info in noodle.text.strip():
             data = soup.find_all('dd',class_="listing-detail-stats-more-val")[idx]
             data= data.text.strip()
     return data
-    
     
 def flatten_dict(dd, separator='_', prefix=''):
     return { prefix + separator + k if prefix else k : v
@@ -609,50 +574,41 @@ def flatten_dict(dd, separator='_', prefix=''):
              for k, v in flatten_dict(vv, separator, kk).items()
              } if isinstance(dd, dict) else { prefix : dd }
 
-
-def createRemaxCityURL(city,state,page):
+def create_remax_city_url(city,state,page):
     BASE = 'https://executive3-northcarolina.remax.com/realestatehomesforsale/'
     url = BASE + '-'.join([city,state,'p{0:03d}'.format(page)])+'.html'
     print(url)
     return url
 
-
-def getCrimeIndex(block_id):
+def get_crime_index(block_id):
     """
     this takes an address dictionary that has already been validated.
 
     it returns a crime index, where the property falls on the national crime index
     """
-
     hc_key = '9SJCA9DISJVUAVAS4QQQ'
     hc_secret = '80vGOq9qYEy46a53XsUReFKpyvPK1owG' 
     params = {
-        
         'block_id': block_id,
     }
-
     crime_url = 'https://api.housecanary.com/v2/block/crime'
-
     response = requests.get(crime_url,params=params,auth=(hc_key,hc_secret))
     response = response.json()
     all_crime = response[0]['block/crime']['result']['all']['nation_percentile']
     violent_crime = response[0]['block/crime']['result']['violent']['nation_percentile']
     return all_crime,violent_crime
 
-#print test
-
-def findSaleHistory(soup):
+def find_sale_history(soup):
     
     sale_list = soup.find_all('td',class_='hv-price--results title-50')
     reformatted_list = [str(x.text.replace(",",'').replace("$",'').strip()) for x in sale_list]
     salestring = ';'.join(reformatted_list)
-    
     return salestring
 
 def pull_sold_home_data(home_url):
     """
-    home_url - string: url of the remax home from which we wish to extract data
-    
+    Keyword arguments:
+        home_url - string: url of the remax home from which we wish to extract data
     - 
     returns: home_dict: dict {
     
@@ -673,11 +629,6 @@ def pull_sold_home_data(home_url):
                     building_area_sq_ft: positive int in SQUARE FEET
             
             }
-            
-            valuation: {
-          
-            }
-            
             features: {
                 
                 lot_size: float - size of the yard, in ACRES
@@ -699,11 +650,9 @@ def pull_sold_home_data(home_url):
             
             }
     }       
-    
     """
     scrape_address = {}
     print(home_url)
-
     homepage = ''
     while homepage == '':
         try:
@@ -714,8 +663,6 @@ def pull_sold_home_data(home_url):
             print('Zzzzzzzz.....')
             time.sleep(10)
             print('I woke up, now let me try this again.')
-
-
     homesoup = BeautifulSoup(homepage.text,'html.parser')
     scrape_address['address_line1']  = homesoup.find_all('li',attrs={'hmsitemprop':'Address'})[0].text.strip()
     addr = homesoup.find_all('li',attrs={'hmsitemprop':'Address'})[0].text.strip()
@@ -725,13 +672,9 @@ def pull_sold_home_data(home_url):
         scrape_address['unit'] = 'Unit '+str(addr[idx+1:])
     else:
         scrape_address['address_line1']  = homesoup.find_all('li',attrs={'hmsitemprop':'Address'})[0].text.strip()
-
-
-
     scrape_address['city']  = homesoup.find_all('li',attrs={'hmsitemprop':'City'})[0].text.strip()
     scrape_address['state']  = homesoup.find_all('li',attrs={'hmsitemprop':'State'})[0].text.strip()
     scrape_address['zipcode']  = homesoup.find_all('li',attrs={'hmsitemprop':'Zip'})[0].text.strip()
-    
     try:
         response = canonicalizeAddress(scrape_address)[0]
     except:
@@ -778,12 +721,11 @@ def pull_sold_home_data(home_url):
         listing_data['sale_price'] = None
 
     try:
-        listing_data['home_type'] = findNestedInfo(homesoup,'Listing Type')
+        listing_data['home_type'] = find_nested_info(homesoup,'Listing Type')
     except:
         listing_data['home_type'] = None
-
-    
-    listing_data['sale_history'] = findSaleHistory(homesoup)
+ 
+    listing_data['sale_history'] = find_sale_history(homesoup)
     
     features = {}
    
@@ -793,38 +735,27 @@ def pull_sold_home_data(home_url):
     except:
         features['desc'] = None
     try:
-        features['year_built'] = findNestedInfo(homesoup,'Year Built')
+        features['year_built'] = find_nested_info(homesoup,'Year Built')
     except:
         features['year_built'] = None
 
     try:
-        features['lot_size'] = str(findNestedInfo(homesoup,'Lot Size'))
+        features['lot_size'] = str(find_nested_info(homesoup,'Lot Size'))
     except:
         features['lot_size'] = None
 
     try:
-        features['house_size'] = findNestedInfo(homesoup,'House Size')
+        features['house_size'] = find_nested_info(homesoup,'House Size')
     except:
         features['house_size'] = None
 
-
-
-
-    #try:
-    #    crime = getCrimeIndex(block_id)
-    #    features['crime_index_all'] = crime[0]
-    #    features['crime_index_violent'] = crime[1]
-    #except:
-    #    features['crime_index_all'] = None
-    #    features['crime_index_violent'] = None
-    
     try:
-        features['floors'] = findNestedInfo(homesoup,'Floors')
+        features['floors'] = find_nested_info(homesoup,'Floors')
     except:
         features['floors'] = None
 
     try:
-        garage = findNestedInfo(homesoup,'Garage')
+        garage = find_nested_info(homesoup,'Garage')
         if garage>0:
             features['garage_detail'] = str(garage)
             features['has_garage'] = True
@@ -836,7 +767,7 @@ def pull_sold_home_data(home_url):
         features['has_garage'] = False
 
     try:
-        if findExtraNestedInfo(homesoup,'Sewer') == 'City Sewer':
+        if find_extra_nested_info(homesoup,'Sewer') == 'City Sewer':
             features['has_septic'] = False
         else:
             features['has_septic'] = True
@@ -844,7 +775,7 @@ def pull_sold_home_data(home_url):
         features['has_septic'] = None
 
     try:
-        if findExtraNestedInfo(homesoup,'Water') == 'City Water':
+        if find_extra_nested_info(homesoup,'Water') == 'City Water':
             features['has_well'] = False
         else:
             features['has_well'] = True
@@ -863,52 +794,46 @@ def pull_sold_home_data(home_url):
     else:
         features['no_pool_well_septic'] = False
 
-
     try:
-        subdiv = findNestedInfo(homesoup,'Subdivision')
+        subdiv = find_nested_info(homesoup,'Subdivision')
         features['has_established_subdivision'] = True
         features['subdivision'] = subdiv
     except:
         features['has_established_subdivision'] = False
         features['subdivision'] = None
     try:
-        features['listing_status'] = findNestedInfo(homesoup,'Listing Status')
+        features['listing_status'] = find_nested_info(homesoup,'Listing Status')
     except:
         features['listing_status'] = None
 
     try:
-        features['num_full_bath'] = findNestedInfo(homesoup,'Full Bath')
+        features['num_full_bath'] = find_nested_info(homesoup,'Full Bath')
     except:
         features['num_full_bath'] = 0
     try:
-        features['num_half_bath'] = findNestedInfo(homesoup,'Half Bath')
+        features['num_half_bath'] = find_nested_info(homesoup,'Half Bath')
     except:
         features['num_half_bath'] = 0
 
     try:
-        features['interior_features'] = findExtraNestedInfo(homesoup,'Interior Features')
+        features['interior_features'] = find_extra_nested_info(homesoup,'Interior Features')
     except:
         features['interior_features'] = None
     try:
-        features['flooring'] = findExtraNestedInfo(homesoup,'Flooring')
+        features['flooring'] = find_extra_nested_info(homesoup,'Flooring')
     except:
         features['flooring'] = None
     try:
         features['remax_url'] = home_url
     except:
         features['remax_url'] = None
-
-
     images={}
-
-    imglist = pullImageURLSFromSlideshow(homesoup)
+    imglist = pull_image_urls_from_slideshow(homesoup)
     images['img_gallery'] = ';'.join(imglist)
     try:
         images['image_header'] = imglist[0]
     except:
         images['image_header'] = None
-
-
 
     home_dict = {}
     home_dict['address'] = address
@@ -916,9 +841,7 @@ def pull_sold_home_data(home_url):
     home_dict['images'] = images
     home_dict['features'] = features
 
-    print(home_dict)    
-    
-    
+    print(home_dict)     
     return home_dict
 
     
@@ -928,7 +851,7 @@ def createSoldHomeURL(page):
     
     return url
 
-def createSoldHomeURLNoFilter(page):
+def create_sold_home_url_no_filter(page):
     
     url = 'https://metrorealty1-northcarolina.remax.com/realestatehomesforsale/charlotte-nc-p{0:03d}.html'.format(page)
     
