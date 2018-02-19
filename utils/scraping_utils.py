@@ -39,7 +39,7 @@ def find_latest_soldpx_csvname(specific_date='<YYYYMMDD>'):
     parsed_csv_list = [x[x.find('data_')+5:-4] for x in csv_list]
     date_csv_list = [x for x in parsed_csv_list if len(x)==8]
     dates = [parser.parse(x) for x in date_csv_list]
-    now = datetime.datetime.now()
+    now = datetime.now()
     newest = max(dt for dt in dates if dt < now)
     csv_filename = 'soldhomedata_{}.csv'.format(newest.strftime('%Y%m%d'))
     return csv_filename
@@ -94,21 +94,6 @@ def fetch_from_google_storage(google_storage_bucket, path_to_file, filename, des
     except Exception as e:
         print('pull failed. error message: {}'.format(e))
 
-def pull_last_run_date(pickle_path):
-    """Pulls the last run date from a pickle file.
-    
-    Keyword arguments:
-        pickle_path: [string] path to the pickle file that has the last_run_date
-
-    Returns:
-    last_run_date_str: [string] path to 
-    """
-    pickle_path = os.path.join(os.getcwd(), pickle_path)
-    last_run_date_file= open(pickle_path, 'rb')
-    last_run_date = pickle.load(last_run_date_file)
-    last_run_date_str = last_run_date.strftime('%Y%m%d')
-    return last_run_date_str
-
 def generate_csv_filename(last_run_date_str):
     """Generates name of csv file given a date
     
@@ -147,7 +132,7 @@ def send_to_google_storage(google_storage_bucket, path_to_file, filename, destin
         print('pull failed. error message: {}'.format(e))
 
 
-def findReMaxURLS(soup):
+def find_remax_urls(soup):
     """
     soup:  bs4 soup -  BeautifulSoup object of a url of a remax search result page
     BASE_URL: string - the beginning of the URL that remax uses
@@ -174,23 +159,7 @@ def pullImageURLSFromSlideshow(soup):
             imglist.append(noodle['data-href'])
     return imglist
 
-
-def findYearBuilt(soup):
-    """
-    soup: [bs4 soup obj] the soup obj of webpage to scrape
-    
-    returns: [int] year the house was built
-    
-    """
-
-    for idx, noodle in enumerate(house_soup.find_all('dt',class_='listing-detail-stats-main-key')):
-        if 'Year Built' in noodle.text.strip():
-            data = house_soup.find_all('dd',class_="listing-detail-stats-main-val")[idx]
-            data= data.text.strip()
-    return data
-
-
-def pullHomeData(home_url):
+def pull_home_data(home_url):
     """
     home_url - string: url of the remax home from which we wish to extract data
     
@@ -287,7 +256,6 @@ def pullHomeData(home_url):
         address['lat'] = str(response['address_info']['lat'])
         address['lon'] = str(response['address_info']['lng'])
         address['slug'] = str(response['address_info']['slug'])
-        block_id = response['address_info']['block_id']
     except:
         address={}
 
@@ -335,7 +303,7 @@ def pullHomeData(home_url):
         features['year_built'] = None
 
     try:
-        school_score = getAverageSchoolRating(homesoup,address['lat'],address['lon'],address['zipcode'])
+        school_score = getAverageSchoolRating(homesoup)
     except:
         school_score = None
     try:
@@ -479,8 +447,6 @@ def getAverageSchoolRating(soup,radius=5):
     
     
     """
-    siteID = findSiteID(soup) #this global function is defined elsewhere in the program
-    
     API_call_BASE = "https://leadingedge-northcarolina.remax.com/api/homefacts/"
     
     lat = float(soup.find_all('li',attrs={ 'hmsitemprop':"Latitude"})[0].text.strip())
@@ -673,12 +639,7 @@ def getCrimeIndex(block_id):
     violent_crime = response[0]['block/crime']['result']['violent']['nation_percentile']
     return all_crime,violent_crime
 
-#test_url = 'https://executive1-northcarolina.remax.com/realestatehomesforsale/3225-burkston-road-charlotte-nc-28269-gid400015295520.html'
-
-#test = pullHomeData(test_url)
-
 #print test
-
 
 def findSaleHistory(soup):
     
@@ -688,11 +649,7 @@ def findSaleHistory(soup):
     
     return salestring
 
-
-
-
-
-def pullSoldHomeData(home_url):
+def pull_sold_home_data(home_url):
     """
     home_url - string: url of the remax home from which we wish to extract data
     
@@ -791,9 +748,6 @@ def pullSoldHomeData(home_url):
     address['lat'] = str(response['address_info']['lat'])
     address['lon'] = str(response['address_info']['lng'])
     address['slug'] = str(response['address_info']['slug'])
-    block_id = response['address_info']['block_id']
-    
-
     try: 
         if str(response['address_info']['status']['details'][0])=='Address fully verified':
             print ("verified address with house canary API")
@@ -802,11 +756,7 @@ def pullSoldHomeData(home_url):
             
     except:
         print( 'error for address %s %s %s' % (address['address_line1'],address['city'],address['state']))
-
-        
-    
-
-    
+ 
     listing_data = {}
     try:
         listing_data['num_bedrooms'] = int(homesoup.find_all('span',class_='listing-detail-beds-val')[0].text.strip())
