@@ -36,7 +36,7 @@ def df_filename():
         df_filename: [string] csv filename data_[todays_date].csv
     """
     now = datetime.now()
-    datestr = now.strftime('%Y%m%d')
+    datestr = now.strftime('%Y%m%d_%H%M%S')
     df_filename = 'data_{}.csv'.format(datestr)
     return df_filename
 
@@ -84,7 +84,10 @@ def check_date_vs_last_scrape_date(property_date,last_scrape_date):
     Returns:
         is_ahead_of_last_scrape_date: [Boolean] True if more recent, else False
     """
-    is_ahead_of_last_scrape_date = property_date >= last_scrape_date
+    # CHANGED THE TIME DELTA FIELD ****** CHANGE BACK TO A SUBTRACTION AND 14
+    two_weeks_back = datetime.combine(last_scrape_date + timedelta(5),
+                                      datetime.min.time())
+    is_ahead_of_last_scrape_date = property_date >= two_weeks_back
     return is_ahead_of_last_scrape_date
 
 def scrape_remax(city,state):
@@ -113,7 +116,7 @@ def scrape_remax(city,state):
        'features_no_pool_well_septic', 'address_city',
        'features_garage_detail', 'features_num_full_bath', 'features_MLS',
        'address_zipcode', 'features_desc']
-    temp_dir = '/data/temp/'
+    temp_dir = 'data/temp/'
     df_old = pd.read_csv('data/temp/'+csv_filename)
     last_scrape_date = find_last_scrape_date(df_old)
     d={}
@@ -135,20 +138,22 @@ def scrape_remax(city,state):
                 d[slug] = flat
                 property_date = parser.parse(flat['features_start_date_on_site'])
                 keep_on_scraping = check_date_vs_last_scrape_date(property_date,last_scrape_date)
-                print('current propery date is: {}  last df property date is: {}'.format(property_date,last_scrape_date))
+                two_weeks_back = datetime.combine(last_scrape_date + timedelta(5),
+                                      datetime.min.time())
+                print('current propery date is: {}  last df property date is: {}'.format(property_date,two_weeks_back))
             except:
                     pass
-        df_new = pd.DataFrame.from_dict(d,orient='index')
-        df_new.to_csv(temp_dir+'df_temp.csv',encoding='utf-8')
-        df_new=pd.read_csv(temp_dir+'df_temp.csv')
-        df_new.columns = newcols
-        df_combined = pd.concat([df_old, df_new])
-        df_combined = df_combined.drop_duplicates()
-        new_df_filename = 'output/'+df_filename()
-        df_combined.to_csv(new_df_filename,encoding='utf-8',index=False)
-        send_to_google_storage('rooftop-data','properties_data',new_df_filename,'')
-        print('uploaded new properties to google cloud storage')
-    print('scraping update completed!')
+        #df_new = pd.DataFrame.from_dict(d,orient='index')
+        #df_new.to_csv(temp_dir+'df_temp.csv',encoding='utf-8')
+        #df_new=pd.read_csv(temp_dir+'df_temp.csv')
+        #df_new.columns = newcols
+        #df_combined = pd.concat([df_old, df_new])
+        #df_combined = df_combined.drop_duplicates()
+        #df_new.to_csv(temp_dir+df_filename(),encoding='utf-8',index=False)
+    df_rmx = pd.DataFrame.from_dict(d,orient='index')
+    df_rmx.to_csv(temp_dir+df_filename(),encoding='utf-8',index=False)
+    send_to_google_storage('rooftop-data','properties_data',df_filename(),'')
+    print('uploaded new properties to google cloud storage')
 
 if __name__ == '__main__':
     base_dir, data_dir, utils_dir = directory_management()

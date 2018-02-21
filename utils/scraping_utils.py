@@ -208,7 +208,6 @@ def pull_home_data(home_url):
     }       
     
     """
-    temp_dir = os.getcwd()+'/data/temp/'
     scrape_address = {}
     print (home_url)
     homepage = ''
@@ -234,7 +233,7 @@ def pull_home_data(home_url):
     scrape_address['state']  = homesoup.find_all('li',attrs={'hmsitemprop':'State'})[0].text.strip()
     scrape_address['zipcode']  = homesoup.find_all('li',attrs={'hmsitemprop':'Zip'})[0].text.strip()
     try:
-        response = canonicalizeAddress(scrape_address)[0]
+        response = canonicalize_address(scrape_address)[0]
     except:
         print('response has failed')
     try:
@@ -516,7 +515,7 @@ def find_nested_info(soup,info):
     return data
 
 
-def canonicalizeAddress(remax_address_dict):
+def canonicalize_address(remax_address_dict):
     """
     this takes a dictionary of address data scraped from the remax website and calls the housecanary API
     to make sure that all of the data is standardized
@@ -676,9 +675,9 @@ def pull_sold_home_data(home_url):
     scrape_address['state']  = homesoup.find_all('li',attrs={'hmsitemprop':'State'})[0].text.strip()
     scrape_address['zipcode']  = homesoup.find_all('li',attrs={'hmsitemprop':'Zip'})[0].text.strip()
     try:
-        response = canonicalizeAddress(scrape_address)[0]
+        response = canonicalize_address(scrape_address)[0]
     except:
-        response = canonicalizeAddress(scrape_address)[0]
+        response = canonicalize_address(scrape_address)[0]
         print(response)
         print('response has failed')
     
