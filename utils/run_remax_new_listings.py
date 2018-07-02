@@ -165,17 +165,7 @@ def scrape_remax(city,state):
     logging.debug('uploaded new properties to google cloud storage')
 
 if __name__ == '__main__':
-    #Set up logging
-    logpath = log_path()
-    logging.basicConfig(level=logging.DEBUG,
-                    format='%(asctime)s %(levelname)s %(message)s',
-                    filename=logpath,
-                    filemode='w')
-
-    logging.debug('Program started')
-    logging.debug('running function: directory management')
     base_dir, data_dir, utils_dir = directory_management()
-    logging.debug('running function: implement_arg_parse')
     arg_check, args = implement_arg_parse()
     if arg_check.city == 'check_string_for_empty':
         print('you didnt supply a city.  please try again.')
@@ -184,11 +174,7 @@ if __name__ == '__main__':
     city=args['city']
     state=args['state']
     print('scraping home data: ')
-    logging.debug('running function: find_latest_csvname')
     csv_filename = find_latest_csvname()
-    logging.debug('running function: fetch_from_google_storage')
     fetch_from_google_storage('rooftop-data','properties_data',csv_filename,
                               'jobs/property_data/data/temp')
-    logging.debug('running function: scrape_remax')
     scrape_remax(city, state)
-    logging.debug('script finished')
