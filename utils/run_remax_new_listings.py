@@ -14,6 +14,14 @@ from dateutil import parser as dateparser
 from scraping_utils import fetch_from_google_storage, send_to_google_storage
 from scraping_utils import find_latest_csvname
 from dateutil import parser
+import logging
+
+def log_path():
+    """Performs basic logging setup
+    """
+    log_timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    logname = 'data/logs/property_data_log_{}.log'.format(log_timestamp)
+    return logname
 
 def directory_management():
     """Makes sure that you are in the correct working director, and then creates base_dir and data_dir and utils_dir variables
@@ -85,7 +93,7 @@ def check_date_vs_last_scrape_date(property_date,last_scrape_date):
         is_ahead_of_last_scrape_date: [Boolean] True if more recent, else False
     """
     # CHANGED THE TIME DELTA FIELD ****** CHANGE BACK TO A SUBTRACTION AND 14
-    two_weeks_back = datetime.combine(last_scrape_date + timedelta(5),
+    two_weeks_back = datetime.combine(last_scrape_date - timedelta(1),
                                       datetime.min.time())
     is_ahead_of_last_scrape_date = property_date >= two_weeks_back
     return is_ahead_of_last_scrape_date
@@ -116,31 +124,32 @@ def scrape_remax(city,state):
        'features_no_pool_well_septic', 'address_city',
        'features_garage_detail', 'features_num_full_bath', 'features_MLS',
        'address_zipcode', 'features_desc']
-    temp_dir = 'data/temp/'
-    df_old = pd.read_csv('data/temp/'+csv_filename)
+    temp_dir = 'jobs/property_data/data/temp/'
+    df_old = pd.read_csv(temp_dir+csv_filename)
     last_scrape_date = find_last_scrape_date(df_old)
     d={}
     pg = 0
     keep_on_scraping = True
+    logging.debug('starting scraping...')
     while keep_on_scraping:
         pg += 1
-        print('scraping page %s' % (str(pg)))
+        logging.debug('scraping page %s' % (str(pg)))
         page = create_remax_city_url(city,state,pg)
         urls = find_remax_urls(BeautifulSoup(get(page,verify=False).text,'html.parser'))
         for url in urls:
             try:
-                print('napping for a bit')
+                logging.debug('napping for a bit')
                 time.sleep(1.5)
-                print(keep_on_scraping)
+                logging.debug(keep_on_scraping)
                 home = pull_home_data(url)
                 flat = flatten_dict(home)
                 slug = flat['address_slug']
                 d[slug] = flat
                 property_date = parser.parse(flat['features_start_date_on_site'])
                 keep_on_scraping = check_date_vs_last_scrape_date(property_date,last_scrape_date)
-                two_weeks_back = datetime.combine(last_scrape_date + timedelta(5),
+                two_weeks_back = datetime.combine(last_scrape_date - timedelta(3),
                                       datetime.min.time())
-                print('current propery date is: {}  last df property date is: {}'.format(property_date,two_weeks_back))
+                logging.debug('current propery date is: {}  last df property date is: {}'.format(property_date,two_weeks_back))
             except:
                     pass
         #df_new = pd.DataFrame.from_dict(d,orient='index')
@@ -152,11 +161,21 @@ def scrape_remax(city,state):
         #df_new.to_csv(temp_dir+df_filename(),encoding='utf-8',index=False)
     df_rmx = pd.DataFrame.from_dict(d,orient='index')
     df_rmx.to_csv(temp_dir+df_filename(),encoding='utf-8',index=False)
-    send_to_google_storage('rooftop-data','properties_data',df_filename(),'')
-    print('uploaded new properties to google cloud storage')
+    send_to_google_storage('rooftop-data','properties_data',df_filename(),'data/temp')
+    logging.debug('uploaded new properties to google cloud storage')
 
 if __name__ == '__main__':
+    #Set up logging
+    logpath = log_path()
+    logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s %(levelname)s %(message)s',
+                    filename=logpath,
+                    filemode='w')
+
+    logging.debug('Program started')
+    logging.debug('running function: directory management')
     base_dir, data_dir, utils_dir = directory_management()
+    logging.debug('running function: implement_arg_parse')
     arg_check, args = implement_arg_parse()
     if arg_check.city == 'check_string_for_empty':
         print('you didnt supply a city.  please try again.')
@@ -165,7 +184,11 @@ if __name__ == '__main__':
     city=args['city']
     state=args['state']
     print('scraping home data: ')
+    logging.debug('running function: find_latest_csvname')
     csv_filename = find_latest_csvname()
+    logging.debug('running function: fetch_from_google_storage')
     fetch_from_google_storage('rooftop-data','properties_data',csv_filename,
-                              'data/temp')
+                              'jobs/property_data/data/temp')
+    logging.debug('running function: scrape_remax')
     scrape_remax(city, state)
+    logging.debug('script finished')
