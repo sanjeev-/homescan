@@ -26,4 +26,4 @@ python_dateutil == 2.6.1
 requests == 2.18.4
 
 # utils/run_remax_recently_sold.py: 9
-urllib3 == 1.22
+urllib3 == 1.24.2
