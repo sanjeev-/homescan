@@ -8,7 +8,7 @@
 beautifulsoup4 == 4.6.0
 
 # utils/__init__.py: 1
-numpy == 1.14.0
+numpy == 1.22.0
 
 # utils/run_eppraisal_recently_sold.py: 4
 # utils/run_remax_new_listings.py: 2,10
